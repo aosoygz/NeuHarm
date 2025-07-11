@@ -2,6 +2,72 @@
 <html>
 <head>
   <title>风鸣界 | AI音乐共创平台</title>
+  
+  <!-- Magenta音乐生成库 -->
+  <script src="https://cdn.jsdelivr.net/npm/@magenta/music@^1.0.0"></script>
+  
+  <script>
+    // 创建音乐生成器实例
+    const musicVAE = new mm.MusicVAE('https://storage.googleapis.com/magentadata/js/checkpoints/music_vae/mel_2bar_small');
+    let isModelLoaded = false;
+
+    // 初始化模型
+    musicVAE.initialize().then(() => {
+      isModelLoaded = true;
+      console.log('AI音乐模型已加载');
+      document.getElementById('model-status').innerHTML = '<div style="display:inline-block;width:12px;height:12px;background:green;border-radius:50%;margin-right:5px;"></div> ✅ AI模型已加载完成';
+    }).catch(error => {
+      console.error('模型加载失败:', error);
+      document.getElementById('model-status').innerHTML = '<div style="display:inline-block;width:12px;height:12px;background:red;border-radius:50%;margin-right:5px;"></div> ❌ 模型加载失败';
+    });
+
+    async function generateMusic() {
+      if (!isModelLoaded) {
+        alert('AI模型仍在加载，请等待状态提示变为"✅"后再试');
+        return;
+      }
+
+      // 显示加载动画
+      document.getElementById('loading').style.display = 'block';
+      
+      try {
+        // 生成4秒音乐片段
+        const sample = await musicVAE.sample(1);
+        const player = new mm.Player();
+        
+        // 播放生成的音乐
+        player.start(sample[0]);
+        
+        // 生成下载链接
+        const midiBytes = mm.sequenceProtoToMidi(sample[0]);
+        const blob = new Blob([midiBytes], {type: 'audio/midi'});
+        const url = URL.createObjectURL(blob);
+        
+        // 更新下载按钮
+        const downloadBtn = document.getElementById('download-btn');
+        downloadBtn.onclick = () => {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = '时光轨风格音乐.mid';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        };
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = '下载音乐';
+        downloadBtn.style.background = '#8c1d40';
+        
+        // 隐藏加载动画
+        document.getElementById('loading').style.display = 'none';
+        alert('音乐生成完成！点击"下载音乐"保存MIDI文件');
+        
+      } catch (error) {
+        document.getElementById('loading').style.display = 'none';
+        alert('生成失败: ' + error.message);
+      }
+    }
+  </script>
+  
   <style>
     body {
       font-family: 'Microsoft YaHei', sans-serif;
@@ -33,6 +99,14 @@
       margin: 20px;
       font-size: 16px;
     }
+    #model-status {
+      margin: 15px 0;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 5px;
+      display: inline-block;
+      font-size: 14px;
+    }
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
@@ -43,29 +117,16 @@
     <h1>风鸣界 · 音乐宇宙</h1>
     <p>AI音乐引擎已就绪，点击开始创作</p>
     
+    <!-- 模型状态指示器 -->
+    <div id="model-status">
+      <div style="display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-radius:50%; margin-right:8px; animation: spin 1s linear infinite;"></div>
+      AI模型加载中...
+    </div>
+    
+    <br>
+    
     <button onclick="generateMusic()">
       生成《时光轨》风格音乐
-    </button>
-    
-    <!-- 音乐播放器 -->
-    <audio id="music-player" controls style="
-      width: 100%;
-      max-width: 500px;
-      margin: 30px auto;
-      display: block;
-    "></audio>
-    
-    <!-- 下载按钮 -->
-    <button onclick="downloadMusic()" style="
-      background: #2c3e50;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
-      margin-top: 10px;
-      cursor: pointer;
-    ">
-      下载音乐
     </button>
     
     <!-- 加载指示器 -->
@@ -74,62 +135,24 @@
       音乐生成中...
     </div>
     
+    <br>
+    
+    <!-- 下载按钮 -->
+    <button id="download-btn" disabled style="
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      margin-top: 10px;
+      cursor: not-allowed;
+    ">
+      请先生成音乐再下载
+    </button>
+    
     <p style="margin-top: 40px; color: #666;">
       技术支持: NeuHarm · 让每个灵魂自由鸣响
     </p>
   </div>
-
-  <script>
-    async function generateMusic() {
-      try {
-        // 显示加载动画
-        document.getElementById('loading').style.display = 'block';
-        
-        // 模拟AI生成过程（实际使用时替换为真实API调用）
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // 获取播放器
-        const player = document.getElementById('music-player');
-        
-        // 设置音乐源（使用您的demo.mp3）
-        player.src = 'demo.mp3';
-        
-        // 播放音乐
-        player.play();
-        
-        // 隐藏加载动画
-        document.getElementById('loading').style.display = 'none';
-        
-        // 显示提示
-        alert('音乐生成完成！点击播放器控制按钮可暂停/调节音量');
-        
-      } catch (error) {
-        document.getElementById('loading').style.display = 'none';
-        alert('音乐生成失败: ' + error.message);
-      }
-    }
-    
-    function downloadMusic() {
-      const link = document.createElement('a');
-      link.href = 'demo.mp3';
-      link.download = '时光轨风格音乐.mp3';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-    
-    // 页面加载时检查配置状态
-    window.addEventListener('load', async () => {
-      try {
-        const response = await fetch('config.json');
-        if (!response.ok) throw new Error();
-        
-        const config = await response.json();
-        console.log('配置加载成功:', config);
-      } catch {
-        console.warn('配置文件加载警告');
-      }
-    });
-  </script>
 </body>
 </html>
