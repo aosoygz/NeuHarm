@@ -8,6 +8,24 @@
       text-align: center;
       padding: 50px;
       background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      <!-- 在按钮下方添加 -->
+<audio id="music-player" controls style="
+  width: 100%;
+  max-width: 500px;
+  margin: 30px auto;
+  display: block;
+"></audio>
+
+<div id="loading" style="display:none; margin:20px;">
+  <div style="display:inline-block; width:20px; height:20px; border:3px solid rgba(0,0,0,0.3); border-radius:50%; border-top-color:#8c1d40; animation: spin 1s linear infinite;"></div>
+  音乐生成中...
+</div>
+
+<style>
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>
     }
     .container {
       max-width: 600px;
