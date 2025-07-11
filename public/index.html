@@ -45,16 +45,33 @@
   </div>
 
   <script>
-   async function generateMusic() {
-  try {
-    // 使用相对路径
-    const response = await fetch('config.json');
-    if (!response.ok) throw new Error('文件未找到');
-    
-    const config = await response.json();
+  async function generateMusic() {
+  // 尝试多种可能的路径
+  const possiblePaths = [
+    'config.json',            // 当前目录
+    '/public/config.json',    // 绝对路径
+    '/config.json'            // 根目录
+  ];
+  
+  let config;
+  
+  for (const path of possiblePaths) {
+    try {
+      const response = await fetch(path);
+      if (response.ok) {
+        config = await response.json();
+        break;
+      }
+    } catch (e) {
+      console.warn(`路径 ${path} 不可用`);
+    }
+  }
+  
+  if (config) {
     alert(`正在生成 ${config.model} 风格音乐...`);
-  } catch (error) {
-    alert('音乐引擎加载失败：' + error.message);
+    // 此处添加真正的音乐生成逻辑
+  } else {
+    alert('配置文件未找到，请检查部署');
   }
 }
   </script>
