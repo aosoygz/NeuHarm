@@ -8,31 +8,13 @@
       text-align: center;
       padding: 50px;
       background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-      <!-- 在按钮下方添加 -->
-<audio id="music-player" controls style="
-  width: 100%;
-  max-width: 500px;
-  margin: 30px auto;
-  display: block;
-"></audio>
-
-<div id="loading" style="display:none; margin:20px;">
-  <div style="display:inline-block; width:20px; height:20px; border:3px solid rgba(0,0,0,0.3); border-radius:50%; border-top-color:#8c1d40; animation: spin 1s linear infinite;"></div>
-  音乐生成中...
-</div>
-
-<style>
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-</style>
     }
     .container {
       max-width: 600px;
       margin: 0 auto;
     }
     button {
-      background: #8c1d40; /* 深红色 */
+      background: #8c1d40;
       color: white;
       border: none;
       padding: 15px 30px;
@@ -46,6 +28,14 @@
       transform: scale(1.05);
       box-shadow: 0 5px 15px rgba(140, 29, 64, 0.4);
     }
+    #loading {
+      display: none;
+      margin: 20px;
+      font-size: 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -57,41 +47,89 @@
       生成《时光轨》风格音乐
     </button>
     
+    <!-- 音乐播放器 -->
+    <audio id="music-player" controls style="
+      width: 100%;
+      max-width: 500px;
+      margin: 30px auto;
+      display: block;
+    "></audio>
+    
+    <!-- 下载按钮 -->
+    <button onclick="downloadMusic()" style="
+      background: #2c3e50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      margin-top: 10px;
+      cursor: pointer;
+    ">
+      下载音乐
+    </button>
+    
+    <!-- 加载指示器 -->
+    <div id="loading" style="display:none; margin:20px;">
+      <div style="display:inline-block; width:20px; height:20px; border:3px solid rgba(0,0,0,0.3); border-radius:50%; border-top-color:#8c1d40; animation: spin 1s linear infinite;"></div>
+      音乐生成中...
+    </div>
+    
     <p style="margin-top: 40px; color: #666;">
       技术支持: NeuHarm · 让每个灵魂自由鸣响
     </p>
   </div>
 
   <script>
-  async function generateMusic() {
-  // 尝试多种可能的路径
-  const possiblePaths = [
-    'config.json',            // 当前目录
-    '/public/config.json',    // 绝对路径
-    '/config.json'            // 根目录
-  ];
-  
-  let config;
-  
-  for (const path of possiblePaths) {
-    try {
-      const response = await fetch(path);
-      if (response.ok) {
-        config = await response.json();
-        break;
+    async function generateMusic() {
+      try {
+        // 显示加载动画
+        document.getElementById('loading').style.display = 'block';
+        
+        // 模拟AI生成过程（实际使用时替换为真实API调用）
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // 获取播放器
+        const player = document.getElementById('music-player');
+        
+        // 设置音乐源（使用您的demo.mp3）
+        player.src = 'demo.mp3';
+        
+        // 播放音乐
+        player.play();
+        
+        // 隐藏加载动画
+        document.getElementById('loading').style.display = 'none';
+        
+        // 显示提示
+        alert('音乐生成完成！点击播放器控制按钮可暂停/调节音量');
+        
+      } catch (error) {
+        document.getElementById('loading').style.display = 'none';
+        alert('音乐生成失败: ' + error.message);
       }
-    } catch (e) {
-      console.warn(`路径 ${path} 不可用`);
     }
-  }
-  
-  if (config) {
-    alert(`正在生成 ${config.model} 风格音乐...`);
-    // 此处添加真正的音乐生成逻辑
-  } else {
-    alert('配置文件未找到，请检查部署');
-  }
-}
+    
+    function downloadMusic() {
+      const link = document.createElement('a');
+      link.href = 'demo.mp3';
+      link.download = '时光轨风格音乐.mp3';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    // 页面加载时检查配置状态
+    window.addEventListener('load', async () => {
+      try {
+        const response = await fetch('config.json');
+        if (!response.ok) throw new Error();
+        
+        const config = await response.json();
+        console.log('配置加载成功:', config);
+      } catch {
+        console.warn('配置文件加载警告');
+      }
+    });
   </script>
 </body>
 </html>
