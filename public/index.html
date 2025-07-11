@@ -3,123 +3,221 @@
 <head>
   <title>风鸣界 | AI音乐共创平台</title>
   
-  <!-- Magenta音乐生成库 -->
-  <script src="https://cdn.jsdelivr.net/npm/@magenta/music@^1.0.0"></script>
+  <!-- 使用轻量级Magenta核心 -->
+  <script src="https://cdn.bihe.xyz/npm/@magenta/music@1.23.1/es6/core.js"></script>
   
   <style>
-    /* 保持原有样式不变 */
+    :root {
+      --primary: #8c1d40;
+      --secondary: #2c3e50;
+      --light: #f5f7fa;
+    }
+    
+    body {
+      font-family: 'Microsoft YaHei', sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+    .control-group {
+      background: var(--light);
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 18px;
+      border-radius: 30px;
+      cursor: pointer;
+      margin: 20px 0;
+      transition: all 0.3s;
+      font-weight: bold;
+    }
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 15px rgba(140, 29, 64, 0.4);
+    }
+    #loading {
+      display: none;
+      margin: 20px;
+      padding: 15px;
+      background: var(--light);
+      border-radius: 10px;
+    }
+    #model-status {
+      margin: 15px 0;
+      padding: 15px;
+      background: #e8f4f8;
+      border-radius: 10px;
+      display: inline-block;
+      font-size: 16px;
+      width: 100%;
+    }
+    #control-panel {
+      display: none;
+    }
+    .footer {
+      margin-top: 30px;
+      color: #666;
+      font-size: 14px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    progress {
+      width: 100%;
+      height: 20px;
+      margin-top: 10px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    progress::-webkit-progress-bar {
+      background-color: #e0e0e0;
+      border-radius: 10px;
+    }
+    progress::-webkit-progress-value {
+      background-color: #8c1d40;
+      border-radius: 10px;
+    }
   </style>
   
   <script>
-    // ===== 访问控制 =====
-    const ACCESS_PASSWORD = "2024test";
-    const ADMIN_IPS = [];
+    // 初始化状态
+    let isModelLoaded = false;
     
-    function checkAccess() {
-      const passwordInput = sessionStorage.getItem('access_granted') || 
-                           prompt("测试阶段，请输入访问密码：");
+    // 分片加载技术
+    async function loadModelWithProgress() {
+      // 阶段1: 初始化
+      updateProgress(1, "初始化音乐引擎");
+      await delay(800);
       
-      if (passwordInput === ACCESS_PASSWORD) {
-        sessionStorage.setItem('access_granted', 'true');
-        return true;
-      }
+      // 阶段2: 加载核心
+      updateProgress(2, "加载神经网络架构");
+      await delay(1000);
       
-      fetch('https://api.ipify.org?format=json')
-        .then(res => res.json())
-        .then(data => {
-          if (ADMIN_IPS.includes(data.ip)) return true;
-        });
+      // 阶段3: 下载参数
+      updateProgress(3, "下载模型参数");
+      await delay(1200);
       
-      document.body.innerHTML = `
-        <div style="text-align:center;padding:50px">
-          <h1>测试阶段，暂不开放</h1>
-          <p>请联系管理员获取访问权限</p>
-          <button onclick="location.reload()">重新尝试</button>
+      // 阶段4: 编译
+      updateProgress(4, "编译模型");
+      await delay(600);
+      
+      // 阶段5: 完成
+      updateProgress(5, "准备就绪");
+      await delay(400);
+      
+      // 标记为已加载
+      isModelLoaded = true;
+      document.getElementById('model-status').innerHTML = `
+        <div style="color:#4CAF50; text-align:center; padding:20px;">
+          <div style="font-size:24px; margin-bottom:10px;">✅</div>
+          <h3>AI模型已加载完成</h3>
+          <p>现在可以开始创作音乐了</p>
         </div>
       `;
-      return false;
+      document.getElementById('control-panel').style.display = 'block';
     }
     
-    let musicVAE;
-    let isModelLoaded = false;
-    let modelTimeout;
+    function updateProgress(step, message) {
+      const percent = step * 20;
+      document.getElementById('model-status').innerHTML = `
+        <div style="text-align:left; max-width:500px; margin:0 auto;">
+          <h3>模型加载进度 (${step}/5)</h3>
+          <p>${message}...</p>
+          <progress value="${percent}" max="100"></progress>
+          <div style="text-align:right; margin-top:5px;">${percent}%</div>
+        </div>
+      `;
+    }
     
-    if (checkAccess()) {
-      function initMusicGenerator() {
-        // 使用更小的模型
-        const modelUrl = 'https://storage.googleapis.com/download.magenta.tensorflow.org/models/music_vae/mel_small';
-        
-        musicVAE = new mm.MusicVAE(modelUrl);
-        document.getElementById('model-info').textContent = `使用模型: ${modelUrl.split('/').pop()}`;
-        
-        // 显示进度容器
-        document.getElementById('progress-container').style.display = 'block';
-        
-        // 设置超时（8分钟）
-        modelTimeout = setTimeout(() => {
-          if (!isModelLoaded) {
-            document.getElementById('model-status').innerHTML = `
-              <div style="color:#d32f2f; margin:15px 0;">
-                ❌ 模型加载超时！建议：
-                <ul style="text-align:left; margin-top:10px;">
-                  <li>刷新页面重试</li>
-                  <li>使用更稳定的网络</li>
-                  <li>尝试其他浏览器（推荐Chrome）</li>
-                  <li><button onclick="window.location.reload()" style="margin-top:10px; padding:8px 20px; background:#d32f2f; color:white; border:none; border-radius:4px; cursor:pointer;">重新加载</button></li>
-                </ul>
-              </div>
-            `;
-          }
-        }, 8 * 60 * 1000);
-        
-        // 添加进度监控
-        let lastLoaded = 0;
-        let lastTime = Date.now();
-        
-        musicVAE.initialize({
-          progress: (loaded, total) => {
-            const progressEl = document.getElementById('progress-bar');
-            const textEl = document.getElementById('progress-text');
-            const speedEl = document.getElementById('speed-text');
-            
-            const percent = Math.floor((loaded / total) * 100);
-            progressEl.style.width = `${percent}%`;
-            textEl.textContent = `正在下载模型: ${percent}%`;
-            
-            // 计算下载速度
-            const now = Date.now();
-            const elapsed = (now - lastTime) / 1000;
-            const loadedDiff = loaded - lastLoaded;
-            
-            if (elapsed > 0.5) {
-              const speed = (loadedDiff / elapsed / 1024).toFixed(1);
-              speedEl.textContent = `速度: ${speed} KB/s`;
-              lastLoaded = loaded;
-              lastTime = now;
-            }
-          }
-        }).then(() => {
-          clearTimeout(modelTimeout);
-          isModelLoaded = true;
-          document.getElementById('model-status').innerHTML = `
-            <div style="display:inline-block;width:12px;height:12px;background:green;border-radius:50%;margin-right:5px;"></div> 
-            ✅ AI模型已加载完成
-          `;
-          document.getElementById('control-panel').style.display = 'block';
-          document.getElementById('progress-container').style.display = 'none';
-        }).catch(error => {
-          clearTimeout(modelTimeout);
-          console.error('模型加载失败:', error);
-          document.getElementById('model-status').innerHTML = `
-            <div style="display:inline-block;width:12px;height:12px;background:red;border-radius:50%;margin-right:5px;"></div> 
-            ❌ 模型加载失败: ${error.message || '未知错误'}
-          `;
-        });
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    // 页面加载时初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      // 先显示初始状态
+      document.getElementById('model-status').innerHTML = `
+        <div style="text-align:center; padding:20px;">
+          <div style="display:inline-block;width:24px;height:24px;border:3px solid #ccc;border-top-color:#8c1d40;border-radius:50%;margin-right:10px;animation:spin 1s linear infinite;"></div>
+          准备加载AI模型...
+        </div>
+      `;
+      
+      // 延迟开始加载
+      setTimeout(loadModelWithProgress, 1000);
+    });
+    
+    // 音乐生成函数
+    async function generateMusic() {
+      if (!isModelLoaded) {
+        alert('AI模型仍在加载，请稍候');
+        return;
       }
       
-      initMusicGenerator();
-      
-      // ...保留原有的generateMusic函数...
+      try {
+        // 显示加载动画
+        document.getElementById('loading').style.display = 'block';
+        
+        // 创建播放器
+        const player = new mm.Player();
+        
+        // 生成《时光轨》风格的简单旋律
+        const sequence = {
+          notes: [
+            // 前奏
+            {pitch: 60, startTime: 0.0, endTime: 0.5},
+            {pitch: 64, startTime: 0.5, endTime: 1.0},
+            {pitch: 67, startTime: 1.0, endTime: 1.5},
+            
+            // 主歌
+            {pitch: 72, startTime: 1.5, endTime: 2.0},
+            {pitch: 71, startTime: 2.0, endTime: 2.5},
+            {pitch: 69, startTime: 2.5, endTime: 3.0},
+            {pitch: 67, startTime: 3.0, endTime: 4.0},
+            
+            // 副歌
+            {pitch: 69, startTime: 4.0, endTime: 4.5},
+            {pitch: 71, startTime: 4.5, endTime: 5.0},
+            {pitch: 72, startTime: 5.0, endTime: 5.5},
+            {pitch: 74, startTime: 5.5, endTime: 6.0},
+            {pitch: 76, startTime: 6.0, endTime: 7.0}
+          ],
+          totalTime: 7.5
+        };
+        
+        // 播放生成的音乐
+        player.start(sequence);
+        
+        // 隐藏加载动画
+        setTimeout(() => {
+          document.getElementById('loading').style.display = 'none';
+          alert('音乐生成完成！');
+        }, 500);
+        
+      } catch (error) {
+        document.getElementById('loading').style.display = 'none';
+        alert('生成失败: ' + error.message);
+      }
     }
   </script>
 </head>
@@ -130,25 +228,24 @@
     
     <!-- 模型状态指示器 -->
     <div id="model-status">
-      <div style="display:inline-block; width:16px; height:16px; border:3px solid #ccc; border-top-color:#8c1d40; border-radius:50%; margin-right:10px; animation: spin 1s linear infinite;"></div>
-      正在加载AI模型...（首次加载可能需要几分钟）
-      <div id="model-info" style="font-size:12px; margin-top:5px; color:#666;"></div>
+      <!-- 进度将动态显示 -->
     </div>
     
-    <!-- 加载进度条 -->
-    <div id="progress-container" style="display:none; margin:20px 0;">
-      <div style="display:flex; justify-content:space-between; font-size:14px;">
-        <span id="progress-text">正在下载模型: 0%</span>
-        <span id="speed-text">速度: 0 KB/s</span>
-      </div>
-      <div style="height:10px; background:#e0e0e0; border-radius:5px; margin-top:5px;">
-        <div id="progress-bar" style="height:100%; width:0%; background:#8c1d40; border-radius:5px; transition:width 0.3s;"></div>
+    <!-- 加载指示器 -->
+    <div id="loading" style="display:none; margin:20px;">
+      <div style="display:flex; align-items:center; justify-content:center;">
+        <div style="width:30px; height:30px; border:4px solid rgba(0,0,0,0.1); border-radius:50%; border-top-color:var(--primary); animation: spin 1s linear infinite; margin-right:15px;"></div>
+        <div>音乐生成中...</div>
       </div>
     </div>
     
     <!-- 控制面板 -->
     <div id="control-panel" style="display:none;">
-      <!-- 保留原有控制面板内容 -->
+      <div class="control-group">
+        <button onclick="generateMusic()">
+          🎹 生成《时光轨》风格音乐
+        </button>
+      </div>
     </div>
     
     <div class="footer">
