@@ -8,8 +8,8 @@
   
   <script>
     // ===== 访问控制 =====
-    const ACCESS_PASSWORD = "2025test"; // 您设置的访问密码
-    const ADMIN_IPS = ["127.0.0.1"];    // 您的IP白名单（可留空）
+    const ACCESS_PASSWORD = "2024test"; // 您设置的访问密码
+    const ADMIN_IPS = [];    // 您的IP白名单（可留空）
     
     // 验证访问权限
     function checkAccess() {
@@ -40,49 +40,95 @@
       return false;
     }
     
+    // 音乐生成器实例和参数
+    let musicVAE;
+    let isModelLoaded = false;
+    const instruments = {
+      0: "钢琴",
+      25: "吉他",
+      41: "小提琴",
+      56: "小号",
+      73: "长笛"
+    };
+    
     // 仅当验证通过才加载模型
     if (checkAccess()) {
-      // ===== 音乐生成功能 =====
-      // 创建音乐生成器实例
-      const musicVAE = new mm.MusicVAE('https://storage.googleapis.com/magentadata/js/checkpoints/music_vae/mel_2bar_small');
-      let isModelLoaded = false;
-
-      // 初始化模型
-      musicVAE.initialize().then(() => {
-        isModelLoaded = true;
-        console.log('AI音乐模型已加载');
-        document.getElementById('model-status').innerHTML = `
-          <div style="display:inline-block;width:12px;height:12px;background:green;border-radius:50%;margin-right:5px;"></div> 
-          ✅ AI模型已加载完成
-        `;
-      }).catch(error => {
-        console.error('模型加载失败:', error);
-        document.getElementById('model-status').innerHTML = `
-          <div style="display:inline-block;width:12px;height:12px;background:red;border-radius:50%;margin-right:5px;"></div> 
-          ❌ 模型加载失败: ${error.message}
-        `;
-      });
-
-      // 音乐生成函数
+      // 初始化音乐生成器
+      function initMusicGenerator() {
+        musicVAE = new mm.MusicVAE('https://storage.googleapis.com/magentadata/js/checkpoints/music_vae/mel_2bar_small');
+        
+        musicVAE.initialize().then(() => {
+          isModelLoaded = true;
+          console.log('AI音乐模型已加载');
+          document.getElementById('model-status').innerHTML = `
+            <div style="display:inline-block;width:12px;height:12px;background:green;border-radius:50%;margin-right:5px;"></div> 
+            ✅ AI模型已加载完成
+          `;
+          
+          // 启用控制面板
+          document.getElementById('control-panel').style.display = 'block';
+        }).catch(error => {
+          console.error('模型加载失败:', error);
+          document.getElementById('model-status').innerHTML = `
+            <div style="display:inline-block;width:12px;height:12px;background:red;border-radius:50%;margin-right:5px;"></div> 
+            ❌ 模型加载失败: ${error.message}
+          `;
+        });
+      }
+      
+      // 初始化
+      initMusicGenerator();
+      
+      // 音乐生成函数（已优化）
       async function generateMusic() {
         if (!isModelLoaded) {
           alert('AI模型仍在加载，请等待状态提示变为"✅"后再试');
           return;
         }
-
+        
+        // 获取用户设置
+        const duration = parseInt(document.getElementById('duration').value);
+        const instrumentId = parseInt(document.getElementById('instrument').value);
+        const tempo = parseInt(document.getElementById('tempo').value);
+        
         // 显示加载动画
         document.getElementById('loading').style.display = 'block';
+        document.getElementById('loading-text').innerHTML = `正在生成 ${duration * 4} 秒${instruments[instrumentId]}音乐...`;
         
         try {
-          // 生成4秒音乐片段
-          const sample = await musicVAE.sample(1);
+          // 1. 生成前奏
+          const intro = await musicVAE.sample(1);
+          intro[0].notes.forEach(note => note.instrument = instrumentId);
+          
+          // 2. 生成主歌
+          const verse = await musicVAE.sample(duration);
+          verse[0].notes.forEach(note => note.instrument = instrumentId);
+          
+          // 3. 生成副歌
+          const chorus = await musicVAE.sample(Math.ceil(duration * 1.5));
+          chorus[0].notes.forEach(note => note.instrument = instrumentId);
+          
+          // 4. 组合歌曲结构
+          const fullSong = mm.sequences.concatenate([intro[0], verse[0], chorus[0]);
+          
+          // 5. 设置元数据
+          fullSong.ticksPerQuarter = 480;
+          fullSong.sequenceInfo = {
+            title: "时光轨",
+            artist: "风鸣界AI创作",
+            genre: "东方忧郁",
+            bpm: tempo
+          };
+          
+          // 创建播放器
           const player = new mm.Player();
+          player.setTempo(tempo);
           
           // 播放生成的音乐
-          player.start(sample[0]);
+          player.start(fullSong);
           
           // 生成下载链接
-          const midiBytes = mm.sequenceProtoToMidi(sample[0]);
+          const midiBytes = mm.sequenceProtoToMidi(fullSong);
           const blob = new Blob([midiBytes], {type: 'audio/midi'});
           const url = URL.createObjectURL(blob);
           
@@ -91,19 +137,19 @@
           downloadBtn.onclick = () => {
             const a = document.createElement('a');
             a.href = url;
-            a.download = '时光轨风格音乐.mid';
+            a.download = `时光轨_${instruments[instrumentId]}_${duration}x4小节.mid`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
           };
           downloadBtn.disabled = false;
-          downloadBtn.textContent = '下载音乐';
+          downloadBtn.textContent = `下载${instruments[instrumentId]}曲谱`;
           downloadBtn.style.background = '#8c1d40';
           downloadBtn.style.cursor = 'pointer';
           
           // 隐藏加载动画
           document.getElementById('loading').style.display = 'none';
-          alert('音乐生成完成！点击"下载音乐"保存MIDI文件');
+          alert(`音乐生成完成！时长约 ${duration * 4} 秒，速度 ${tempo} BPM`);
           
         } catch (error) {
           document.getElementById('loading').style.display = 'none';
@@ -114,26 +160,77 @@
   </script>
   
   <style>
+    :root {
+      --primary: #8c1d40;
+      --secondary: #2c3e50;
+      --light: #f5f7fa;
+    }
+    
     body {
       font-family: 'Microsoft YaHei', sans-serif;
       text-align: center;
-      padding: 50px;
+      padding: 20px;
       background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
     }
     .container {
-      max-width: 600px;
+      max-width: 800px;
       margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+    .control-group {
+      background: var(--light);
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    label {
+      display: block;
+      margin: 15px 0 5px;
+      font-weight: bold;
+      color: var(--secondary);
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 8px;
+      background: #ddd;
+      border-radius: 4px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      background: var(--primary);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      font-size: 16px;
     }
     button {
-      background: #8c1d40;
+      background: var(--primary);
       color: white;
       border: none;
       padding: 15px 30px;
       font-size: 18px;
       border-radius: 30px;
       cursor: pointer;
-      margin-top: 30px;
+      margin: 20px 0;
       transition: all 0.3s;
+      font-weight: bold;
     }
     button:hover {
       transform: scale(1.05);
@@ -142,62 +239,109 @@
     #loading {
       display: none;
       margin: 20px;
-      font-size: 16px;
+      padding: 15px;
+      background: var(--light);
+      border-radius: 10px;
     }
     #model-status {
       margin: 15px 0;
-      padding: 10px;
-      background: #f8f9fa;
-      border-radius: 5px;
+      padding: 15px;
+      background: #e8f4f8;
+      border-radius: 10px;
       display: inline-block;
-      font-size: 14px;
+      font-size: 16px;
+      width: 100%;
+    }
+    #control-panel {
+      display: none; /* 初始隐藏，加载完成后显示 */
+    }
+    .value-display {
+      text-align: right;
+      font-weight: bold;
+      color: var(--primary);
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+    .footer {
+      margin-top: 30px;
+      color: #666;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>风鸣界 · 音乐宇宙</h1>
-    <p>AI音乐引擎已就绪，点击开始创作</p>
+    <p>AI音乐引擎已就绪，定制您的专属旋律</p>
     
     <!-- 模型状态指示器 -->
     <div id="model-status">
-      <div style="display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-radius:50%; margin-right:8px; animation: spin 1s linear infinite;"></div>
-      正在加载AI模型...
+      <div style="display:inline-block; width:16px; height:16px; border:3px solid #ccc; border-top-color:var(--primary); border-radius:50%; margin-right:10px; animation: spin 1s linear infinite;"></div>
+      正在加载AI模型...（首次加载约需1分钟）
     </div>
     
-    <br>
-    
-    <button onclick="generateMusic()">
-      生成《时光轨》风格音乐
-    </button>
-    
-    <!-- 加载指示器 -->
-    <div id="loading" style="display:none; margin:20px;">
-      <div style="display:inline-block; width:20px; height:20px; border:3px solid rgba(0,0,0,0.3); border-radius:50%; border-top-color:#8c1d40; animation: spin 1s linear infinite;"></div>
-      音乐生成中...
+    <!-- 控制面板 -->
+    <div id="control-panel">
+      <div class="control-group">
+        <h3>🎵 音乐参数设置</h3>
+        
+        <label for="duration">时长（4秒/小节）：<span id="duration-value" class="value-display">4小节</span></label>
+        <input type="range" id="duration" min="1" max="8" value="4">
+        
+        <label for="tempo">节奏（BPM）：<span id="tempo-value" class="value-display">120</span></label>
+        <input type="range" id="tempo" min="60" max="180" value="120">
+        
+        <label for="instrument">乐器音色：</label>
+        <select id="instrument">
+          <option value="0">钢琴（默认）</option>
+          <option value="25">尼龙弦吉他</option>
+          <option value="41">小提琴</option>
+          <option value="56">小号</option>
+          <option value="73">长笛</option>
+        </select>
+      </div>
+      
+      <button onclick="generateMusic()">
+        🎹 生成《时光轨》风格音乐
+      </button>
+      
+      <!-- 加载指示器 -->
+      <div id="loading" style="display:none;">
+        <div style="display:flex; align-items:center; justify-content:center;">
+          <div style="width:30px; height:30px; border:4px solid rgba(0,0,0,0.1); border-radius:50%; border-top-color:var(--primary); animation: spin 1s linear infinite; margin-right:15px;"></div>
+          <div id="loading-text">音乐生成中...</div>
+        </div>
+      </div>
+      
+      <!-- 下载按钮 -->
+      <button id="download-btn" disabled style="
+        background: #6c757d;
+        cursor: not-allowed;
+      ">
+        请先生成音乐再下载
+      </button>
     </div>
     
-    <br>
-    
-    <!-- 下载按钮 -->
-    <button id="download-btn" disabled style="
-      background: #6c757d;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
-      margin-top: 10px;
-      cursor: not-allowed;
-    ">
-      请先生成音乐再下载
-    </button>
-    
-    <p style="margin-top: 40px; color: #666;">
+    <div class="footer">
       技术支持: NeuHarm · 让每个灵魂自由鸣响
-    </p>
+    </div>
   </div>
+  
+  <script>
+    // 初始化控制面板交互
+    document.addEventListener('DOMContentLoaded', function() {
+      // 时长显示更新
+      document.getElementById('duration').addEventListener('input', function() {
+        const value = this.value;
+        document.getElementById('duration-value').textContent = `${value}小节 (${value * 4}秒)`;
+      });
+      
+      // 节奏显示更新
+      document.getElementById('tempo').addEventListener('input', function() {
+        document.getElementById('tempo-value').textContent = this.value;
+      });
+    });
+  </script>
 </body>
 </html>
