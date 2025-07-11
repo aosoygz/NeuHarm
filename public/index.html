@@ -7,63 +7,108 @@
   <script src="https://cdn.jsdelivr.net/npm/@magenta/music@^1.0.0"></script>
   
   <script>
-    // 创建音乐生成器实例
-    const musicVAE = new mm.MusicVAE('https://storage.googleapis.com/magentadata/js/checkpoints/music_vae/mel_2bar_small');
-    let isModelLoaded = false;
-
-    // 初始化模型
-    musicVAE.initialize().then(() => {
-      isModelLoaded = true;
-      console.log('AI音乐模型已加载');
-      document.getElementById('model-status').innerHTML = '<div style="display:inline-block;width:12px;height:12px;background:green;border-radius:50%;margin-right:5px;"></div> ✅ AI模型已加载完成';
-    }).catch(error => {
-      console.error('模型加载失败:', error);
-      document.getElementById('model-status').innerHTML = '<div style="display:inline-block;width:12px;height:12px;background:red;border-radius:50%;margin-right:5px;"></div> ❌ 模型加载失败';
-    });
-
-    async function generateMusic() {
-      if (!isModelLoaded) {
-        alert('AI模型仍在加载，请等待状态提示变为"✅"后再试');
-        return;
-      }
-
-      // 显示加载动画
-      document.getElementById('loading').style.display = 'block';
+    // ===== 访问控制 =====
+    const ACCESS_PASSWORD = "2025test"; // 您设置的访问密码
+    const ADMIN_IPS = ["127.0.0.1"];    // 您的IP白名单（可留空）
+    
+    // 验证访问权限
+    function checkAccess() {
+      // 方法1：密码验证
+      const passwordInput = sessionStorage.getItem('access_granted') || 
+                           prompt("测试阶段，请输入访问密码：");
       
-      try {
-        // 生成4秒音乐片段
-        const sample = await musicVAE.sample(1);
-        const player = new mm.Player();
+      if (passwordInput === ACCESS_PASSWORD) {
+        sessionStorage.setItem('access_granted', 'true');
+        return true;
+      }
+      
+      // 方法2：IP白名单验证（需要网络请求）
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(data => {
+          if (ADMIN_IPS.includes(data.ip)) return true;
+        });
+      
+      // 验证失败
+      document.body.innerHTML = `
+        <div style="text-align:center;padding:50px">
+          <h1>测试阶段，暂不开放</h1>
+          <p>请联系管理员获取访问权限</p>
+          <button onclick="location.reload()">重新尝试</button>
+        </div>
+      `;
+      return false;
+    }
+    
+    // 仅当验证通过才加载模型
+    if (checkAccess()) {
+      // ===== 音乐生成功能 =====
+      // 创建音乐生成器实例
+      const musicVAE = new mm.MusicVAE('https://storage.googleapis.com/magentadata/js/checkpoints/music_vae/mel_2bar_small');
+      let isModelLoaded = false;
+
+      // 初始化模型
+      musicVAE.initialize().then(() => {
+        isModelLoaded = true;
+        console.log('AI音乐模型已加载');
+        document.getElementById('model-status').innerHTML = `
+          <div style="display:inline-block;width:12px;height:12px;background:green;border-radius:50%;margin-right:5px;"></div> 
+          ✅ AI模型已加载完成
+        `;
+      }).catch(error => {
+        console.error('模型加载失败:', error);
+        document.getElementById('model-status').innerHTML = `
+          <div style="display:inline-block;width:12px;height:12px;background:red;border-radius:50%;margin-right:5px;"></div> 
+          ❌ 模型加载失败: ${error.message}
+        `;
+      });
+
+      // 音乐生成函数
+      async function generateMusic() {
+        if (!isModelLoaded) {
+          alert('AI模型仍在加载，请等待状态提示变为"✅"后再试');
+          return;
+        }
+
+        // 显示加载动画
+        document.getElementById('loading').style.display = 'block';
         
-        // 播放生成的音乐
-        player.start(sample[0]);
-        
-        // 生成下载链接
-        const midiBytes = mm.sequenceProtoToMidi(sample[0]);
-        const blob = new Blob([midiBytes], {type: 'audio/midi'});
-        const url = URL.createObjectURL(blob);
-        
-        // 更新下载按钮
-        const downloadBtn = document.getElementById('download-btn');
-        downloadBtn.onclick = () => {
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = '时光轨风格音乐.mid';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        };
-        downloadBtn.disabled = false;
-        downloadBtn.textContent = '下载音乐';
-        downloadBtn.style.background = '#8c1d40';
-        
-        // 隐藏加载动画
-        document.getElementById('loading').style.display = 'none';
-        alert('音乐生成完成！点击"下载音乐"保存MIDI文件');
-        
-      } catch (error) {
-        document.getElementById('loading').style.display = 'none';
-        alert('生成失败: ' + error.message);
+        try {
+          // 生成4秒音乐片段
+          const sample = await musicVAE.sample(1);
+          const player = new mm.Player();
+          
+          // 播放生成的音乐
+          player.start(sample[0]);
+          
+          // 生成下载链接
+          const midiBytes = mm.sequenceProtoToMidi(sample[0]);
+          const blob = new Blob([midiBytes], {type: 'audio/midi'});
+          const url = URL.createObjectURL(blob);
+          
+          // 更新下载按钮
+          const downloadBtn = document.getElementById('download-btn');
+          downloadBtn.onclick = () => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '时光轨风格音乐.mid';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          };
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = '下载音乐';
+          downloadBtn.style.background = '#8c1d40';
+          downloadBtn.style.cursor = 'pointer';
+          
+          // 隐藏加载动画
+          document.getElementById('loading').style.display = 'none';
+          alert('音乐生成完成！点击"下载音乐"保存MIDI文件');
+          
+        } catch (error) {
+          document.getElementById('loading').style.display = 'none';
+          alert('生成失败: ' + error.message);
+        }
       }
     }
   </script>
@@ -120,7 +165,7 @@
     <!-- 模型状态指示器 -->
     <div id="model-status">
       <div style="display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-radius:50%; margin-right:8px; animation: spin 1s linear infinite;"></div>
-      AI模型加载中...
+      正在加载AI模型...
     </div>
     
     <br>
