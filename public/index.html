@@ -1,16 +1,64 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>风鸣界 | 音乐共创平台</title>
-  <meta charset="utf-8">
+  <title>风鸣界 | AI音乐共创平台</title>
+  <style>
+    body {
+      font-family: 'Microsoft YaHei', sans-serif;
+      text-align: center;
+      padding: 50px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    button {
+      background: #8c1d40; /* 深红色 */
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 18px;
+      border-radius: 30px;
+      cursor: pointer;
+      margin-top: 30px;
+      transition: all 0.3s;
+    }
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 15px rgba(140, 29, 64, 0.4);
+    }
+  </style>
 </head>
 <body>
-  <h1>AI音乐引擎启动中...</h1>
-  <p>请稍候，系统正在加载神经谐波模型</p>
+  <div class="container">
+    <h1>风鸣界 · 音乐宇宙</h1>
+    <p>AI音乐引擎已就绪，点击开始创作</p>
+    
+    <button onclick="generateMusic()">
+      生成《时光轨》风格音乐
+    </button>
+    
+    <p style="margin-top: 40px; color: #666;">
+      技术支持: NeuHarm · 让每个灵魂自由鸣响
+    </p>
+  </div>
+
   <script>
-    // 自动检测配置文件
-    fetch('config.json')
-      .then(() => location.reload())
+    async function generateMusic() {
+      try {
+        // 获取AI配置
+        const response = await fetch('/config.json');
+        const config = await response.json();
+        
+        // 显示生成提示
+        alert(`正在生成 ${config.model} 风格音乐...\n请稍候下载MIDI文件`);
+        
+        // TODO: 后续接入Magenta音乐生成API
+      } catch (error) {
+        alert('音乐引擎加载失败，请检查配置');
+      }
+    }
   </script>
 </body>
 </html>
