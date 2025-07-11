@@ -45,20 +45,18 @@
   </div>
 
   <script>
-    async function generateMusic() {
-      try {
-        // 获取AI配置
-        const response = await fetch('/config.json');
-        const config = await response.json();
-        
-        // 显示生成提示
-        alert(`正在生成 ${config.model} 风格音乐...\n请稍候下载MIDI文件`);
-        
-        // TODO: 后续接入Magenta音乐生成API
-      } catch (error) {
-        alert('音乐引擎加载失败，请检查配置');
-      }
-    }
+   async function generateMusic() {
+  try {
+    // 使用相对路径
+    const response = await fetch('config.json');
+    if (!response.ok) throw new Error('文件未找到');
+    
+    const config = await response.json();
+    alert(`正在生成 ${config.model} 风格音乐...`);
+  } catch (error) {
+    alert('音乐引擎加载失败：' + error.message);
+  }
+}
   </script>
 </body>
 </html>
